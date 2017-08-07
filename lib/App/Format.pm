@@ -1,10 +1,45 @@
 package App::Format;
-use 5.008001;
 use strict;
 use warnings;
+use Compiler::Lexer;
+
+use String::CamelCase 'decamelize';
+use App::Format::State;
+use App::Format::Constants;
+use Data::Dumper;
 
 our $VERSION = "0.01";
 
+my $brace_count = 0;
+my $indent = "\t";
+
+sub run {
+    my @args = @_;
+    my $filename = $args[1];
+
+    open my $fh, '<', $filename or die "Cannot open $filename: $!";
+    my $script = do { local $/; <$fh> };
+    close $fh;
+
+    my $lexer = Compiler::Lexer->new($filename);
+    my $tokens = $lexer->tokenize($script);
+    print Dumper $tokens;
+
+    my $state = App::Format::State->new(indent => "    ");
+
+    for (my $i = 0; $i < @$tokens; $i++) {
+        my $token = $tokens->[$i];
+        my $token_name = decamelize($token->name);
+        if ($state->can($token_name)) {
+            $state->$token_name($token);
+        } else {
+            $state->emit_data($token);
+        }
+    }
+    $state->flush;
+
+    return 0;
+}
 
 
 1;
