@@ -1,0 +1,6 @@
+name = "App-Format"
+# badges = ["travis"]
+authority="cpan:CODEHEX"
+
+module_maker="ModuleBuildTiny"
+
