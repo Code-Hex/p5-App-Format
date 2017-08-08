@@ -2,20 +2,12 @@ package App::Format::State;
 
 use strict;
 use warnings;
-use Carp 'croak';
+
 use Compiler::Lexer;
+use App::Format::Utils;
 use App::Format::Constants;
 
 use Data::Dumper;
-
-sub slurp {
-    my $filename = shift;
-    open my $fh, '<', $filename or croak "Could not open $filename: $!";
-    my $script = do { local $/; <$fh> };
-    close $fh;
-
-    return $script;
-}
 
 sub new {
     my $class = shift;
@@ -33,7 +25,7 @@ sub new {
         tokens           => $tokens,
         index            => 0,
         indent_flag      => 0,
-        brace_count      => 0,
+        indent_level     => 0,
         looks_like_hash  => 0,
         formatted_buffer => [],
     }, $class;
@@ -74,7 +66,7 @@ sub double {
 
 sub left_bracket {
     my ($self, $token) = @_;
-    $self->brace_count++;
+    $self->indent_level++;
     $self->emit_left_bracket;
     $self->emit_newline;
     $self->emit_indent;
@@ -82,7 +74,7 @@ sub left_bracket {
 
 sub right_bracket {
     my ($self, $token) = @_;
-    $self->brace_count--;
+    $self->indent_level--;
     $self->emit_indent;
     $self->emit_right_bracket;
 }
@@ -93,7 +85,7 @@ sub left_brace {
         $self->looks_like_hash++;
     }
     $self->indent_flag++;
-    $self->brace_count++;
+    $self->indent_level++;
     $self->emit_left_brace;
     $self->emit_newline;
 }
@@ -101,10 +93,10 @@ sub left_brace {
 # }
 sub right_brace {
     my ($self, $token) = @_;
-    $self->brace_count--;
+    $self->indent_level--;
     $self->emit_indent;
     $self->emit_right_brace;
-    if ($self->brace_count == 0) {
+    if ($self->indent_level == 0) {
         my $index = $self->{index};
         if ($index < @{ $self->{tokens} }) {
             my $token = $self->{tokens}->[$index];
@@ -174,7 +166,7 @@ sub fetch {
 
 sub indent { $_[0]->{indent} }
 sub indent_flag :lvalue { $_[0]->{indent_flag} }
-sub brace_count :lvalue { $_[0]->{brace_count} }
+sub indent_level :lvalue { $_[0]->{indent_level} }
 sub looks_like_hash :lvalue { $_[0]->{looks_like_hash} }
 
 sub is_hash {
@@ -256,7 +248,7 @@ sub emit_semi_colon {
 
 sub emit_indent {
     my $self = shift;
-    push @{ $self->{formatted_buffer} }, $self->indent x $self->brace_count;
+    push @{ $self->{formatted_buffer} }, $self->indent x $self->indent_level;
 }
 
 sub emit_data {
